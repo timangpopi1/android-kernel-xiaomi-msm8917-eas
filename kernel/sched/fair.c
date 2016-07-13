@@ -5411,7 +5411,7 @@ static inline int find_best_target(struct task_struct *p)
 {
 	int i, boosted;
 	int target_cpu = -1;
-	int target_capacity = 0;
+	int target_util = 0;
 	int backup_capacity = 0;
 	int idle_cpu = -1;
 	int best_idle_cstate = INT_MAX;
@@ -5469,11 +5469,12 @@ static inline int find_best_target(struct task_struct *p)
 
 		if (new_util < cur_capacity) {
 			if (cpu_rq(i)->nr_running) {
-				if (target_capacity == 0 ||
-					target_capacity > cur_capacity) {
-					/* busy CPU with most capacity at current OPP */
+
+				if (target_util == 0 ||
+					target_util > new_util) {
+
 					target_cpu = i;
-					target_capacity = cur_capacity;
+					target_util = new_util;
 				}
 			} else if (!boosted) {
 				if (idle_cpu < 0 ||
