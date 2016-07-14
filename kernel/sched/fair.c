@@ -5407,7 +5407,8 @@ done:
 	return target;
 }
 
-static inline int find_best_target(struct task_struct *p)
+static inline int find_best_target(struct task_struct *p, bool prefer_idle)
+
 {
 	int i, boosted;
 	int target_cpu = -1;
@@ -5429,10 +5430,19 @@ static inline int find_best_target(struct task_struct *p)
 	boosted = 0;
 #endif
 	task_util_boosted = boosted_task_util(p);
-	for_each_cpu(i, tsk_cpus_allowed(p)) {
-		int cur_capacity = capacity_curr_of(i);
-		struct rq *rq = cpu_rq(i);
-		int idle_idx = idle_get_state_idx(rq);
+
+	for (iter_cpu = 0; iter_cpu < NR_CPUS; iter_cpu++) {
+		int cur_capacity;
+		struct rq *rq;
+		int idle_idx;
+
+		/*
+		 * favor higher cpus for tasks that prefer idle cores
+		 */
+		int i = prefer_idle ? NR_CPUS-iter_cpu-1 : iter_cpu;
+
+		if (!cpu_online(i) || !cpumask_test_cpu(i, tsk_cpus_allowed(p)))
+			continue;
 
 		/*
 		 * p's blocked utilization is still accounted for on prev_cpu
@@ -5454,16 +5464,14 @@ static inline int find_best_target(struct task_struct *p)
 			continue;
 #endif
 		/*
-		 * For boosted tasks we favor idle cpus unconditionally to
+		 * Unconditionally favoring tasks that prefer idle cpus to
 		 * improve latency.
 		 */
-		if (idle_idx >= 0 && boosted) {
-			if (idle_cpu < 0 ||
-				(sysctl_sched_cstate_aware &&
-				 best_idle_cstate > idle_idx)) {
-				best_idle_cstate = idle_idx;
-				idle_cpu = i;
-			}
+
+		if (idle_cpu(i) && prefer_idle) {
+			if (best_idle_cpu < 0)
+				best_idle_cpu = i;
+
 			continue;
 		}
 
@@ -5476,8 +5484,10 @@ static inline int find_best_target(struct task_struct *p)
 					target_cpu = i;
 					target_util = new_util;
 				}
-			} else if (!boosted) {
-				if (idle_cpu < 0 ||
+
+			} else if (!prefer_idle) {
+				if (best_idle_cpu < 0 ||
+
 					(sysctl_sched_cstate_aware &&
 						best_idle_cstate > idle_idx)) {
 					best_idle_cstate = idle_idx;
@@ -5492,9 +5502,10 @@ static inline int find_best_target(struct task_struct *p)
 		}
 	}
 
-	if (!boosted && target_cpu < 0) {
-		target_cpu = idle_cpu >= 0 ? idle_cpu : backup_cpu;
-	}
+	if (prefer_idle && best_idle_cpu >= 0)
+		target_cpu = best_idle_cpu;
+	else if (target_cpu < 0)
+		target_cpu = best_idle_cpu >= 0 ? best_idle_cpu : backup_cpu;
 
 	if (boosted && idle_cpu >= 0)
 		target_cpu = idle_cpu;
@@ -5583,9 +5594,21 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		/*
 		 * Find a cpu with sufficient capacity
 		 */
-		int tmp_target = find_best_target(p);
-		if (tmp_target >= 0)
+
+#ifdef CONFIG_CGROUP_SCHEDTUNE
+		bool boosted = schedtune_task_boost(p) > 0;
+		bool prefer_idle = schedtune_prefer_idle(p) > 0;
+#else
+		bool boosted = 0;
+		bool prefer_idle = 0;
+#endif
+		int tmp_target = find_best_target(p, boosted || prefer_idle);
+		if (tmp_target >= 0) {
 			target_cpu = tmp_target;
+			if ((boosted || prefer_idle) && idle_cpu(target_cpu))
+				return target_cpu;
+		}
+
 	}
 
 	if (target_cpu != task_cpu(p)) {
