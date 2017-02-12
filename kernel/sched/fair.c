@@ -2449,25 +2449,40 @@ static u64 decay_load(u64 val, u64 n)
 	return val;
 }
 
-static u32 __accumulate_pelt_segments(u64 periods, u32 d1, u32 d3)
+u32 __accumulate_sum(u64 periods, u32 period_contrib, u32 remainder)
 {
-	u32 c1, c2, c3 = d3; /* y^0 == 1 */
+	u32 c1, c2, c3 = remainder; /* y^0 == 1 */
+
+	if (!periods)
+		return remainder - period_contrib;
+
+	if (unlikely(periods >= LOAD_AVG_MAX_N))
+		return LOAD_AVG_MAX;
 
 	/*
-	 * c1 = d1 y^p
+	 * c1 = d1 y^(p+1)
 	 */
-	c1 = decay_load((u64)d1, periods);
+	c1 = decay_load((u64)(1024 - period_contrib), periods);
 
+	periods -= 1;
 	/*
-	 *            p-1
-	 * c2 = 1024 \Sum y^n
-	 *            n=1
+	 * For updates fully spanning n periods, the contribution to runnable
+	 * average will be:
 	 *
-	 *              inf        inf
-	 *    = 1024 ( \Sum y^n - \Sum y^n - y^0 )
-	 *              n=0        n=p
+	 *   c2 = 1024 \Sum y^n
+	 *
+	 * We can compute this reasonably efficiently by combining:
+	 *
+	 *   y^PERIOD = 1/2 with precomputed 1024 \Sum y^n {for: n < PERIOD}
 	 */
-	c2 = LOAD_AVG_MAX - decay_load(LOAD_AVG_MAX, periods) - 1024;
+	if (likely(periods <= LOAD_AVG_PERIOD)) {
+		c2 = runnable_avg_yN_sum[periods];
+	} else {
+		c2 = __accumulated_sum_N32[periods/LOAD_AVG_PERIOD];
+		periods %= LOAD_AVG_PERIOD;
+		c2 = decay_load(c2, periods);
+		c2 += runnable_avg_yN_sum[periods];
+	}
 
 	return c1 + c2 + c3;
 }
@@ -2502,6 +2517,72 @@ static inline void cfs_se_util_change(struct sched_avg *avg)
 	/* Reset flag to report util_avg has been updated */
 	enqueued &= ~UTIL_AVG_UNCHANGED;
 	WRITE_ONCE(avg->util_est.enqueued, enqueued);
+}
+
+/*
+ * Accumulate the three separate parts of the sum; d1 the remainder
+ * of the last (incomplete) period, d2 the span of full periods and d3
+ * the remainder of the (incomplete) current period.
+ *
+ *           d1          d2           d3
+ *           ^           ^            ^
+ *           |           |            |
+ *         |<->|<----------------->|<--->|
+ * ... |---x---|------| ... |------|-----x (now)
+ *
+ *                                p
+ * u' = (u + d1) y^(p+1) + 1024 \Sum y^n + d3 y^0
+ *                               n=1
+ *
+ *    = u y^(p+1) +				(Step 1)
+ *
+ *                          p
+ *      d1 y^(p+1) + 1024 \Sum y^n + d3 y^0	(Step 2)
+ *                         n=1
+ */
+__always_inline u32
+accumulate_sum(u64 delta, int cpu, struct sched_avg *sa,
+	       unsigned long weight, int running, struct cfs_rq *cfs_rq)
+{
+	unsigned long scale_freq, scale_cpu;
+	u64 periods;
+	u32 contrib;
+
+	scale_freq = arch_scale_freq_capacity(NULL, cpu);
+	scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
+
+	delta += sa->period_contrib;
+	periods = delta / 1024; /* A period is 1024us (~1ms) */
+
+	/*
+	 * Step 1: decay old *_sum if we crossed period boundaries.
+	 */
+	if (periods) {
+		sa->load_sum = decay_load(sa->load_sum, periods);
+		if (cfs_rq) {
+			cfs_rq->runnable_load_sum =
+				decay_load(cfs_rq->runnable_load_sum, periods);
+		}
+		sa->util_sum = decay_load((u64)(sa->util_sum), periods);
+	}
+
+	/*
+	 * Step 2
+	 */
+	delta %= 1024;
+	contrib = __accumulate_sum(periods, sa->period_contrib, delta);
+	sa->period_contrib = delta;
+
+	contrib = cap_scale(contrib, scale_freq);
+	if (weight) {
+		sa->load_sum += weight * contrib;
+		if (cfs_rq)
+			cfs_rq->runnable_load_sum += weight * contrib;
+	}
+	if (running)
+		sa->util_sum += contrib * scale_cpu;
+
+	return periods;
 }
 
 /*
@@ -2556,7 +2637,7 @@ ___update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	if (!delta)
 		return 0;
 
-	sa->last_update_time += delta << 10;
+	sa->last_update_time = now;
 
 	/*
 	 * Now we know we crossed measurement unit boundaries. The *_avg
@@ -2575,28 +2656,12 @@ ___update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	if (cfs_rq) {
 		cfs_rq->runnable_load_avg =
 			div_u64(cfs_rq->runnable_load_sum, LOAD_AVG_MAX);
+
 	}
 	sa->util_avg = sa->util_sum / LOAD_AVG_MAX;
 
-	return 1;
-}
-
-static int
-__update_load_avg_blocked_se(u64 now, int cpu, struct sched_entity *se)
-{
-	return ___update_load_avg(now, cpu, &se->avg, 0, 0, NULL);
-}
-
-static int
-__update_load_avg_se(u64 now, int cpu, struct cfs_rq *cfs_rq, struct sched_entity *se)
-{
-	return ___update_load_avg(now, cpu, &se->avg,
-				  se->on_rq * scale_load_down(se->load.weight),
-				  cfs_rq->curr == se, NULL);
-	}
-
 	cfs_se_util_change(sa);
-	return decayed;
+	return 1;
 }
 
 /*
@@ -10659,3 +10724,4 @@ __init void init_sched_fair_class(void)
 #endif /* SMP */
 
 }
+
