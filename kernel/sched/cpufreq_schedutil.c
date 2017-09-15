@@ -207,11 +207,12 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, u64 time)
 	rt = div64_u64(rq->rt_avg, sched_avg_period() + delta);
 	rt = (rt * max_cap) >> SCHED_CAPACITY_SHIFT;
 
-	*util = min(rq->cfs.avg.util_avg + rt, max_cap);
-#ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
-		*util = boosted_cpu_util(cpu);
-#endif
+	*util = boosted_cpu_util(cpu);
+	if (likely(use_pelt()))
+		*util = *util + rt;
+
+	*util = min(*util, max_cap);
+
 	*max = max_cap;
 }
 
