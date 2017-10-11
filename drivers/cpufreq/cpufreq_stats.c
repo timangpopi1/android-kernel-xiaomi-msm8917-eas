@@ -246,6 +246,7 @@ void cpufreq_task_stats_init(struct task_struct *p)
 	 * cpus
 	 */
 	alloc_size = p->max_states * sizeof(p->time_in_state[0]);
+	temp = kzalloc(alloc_size, GFP_ATOMIC);
 
 	WRITE_ONCE(p->time_in_state, kzalloc(alloc_size, GFP_KERNEL));
 }
