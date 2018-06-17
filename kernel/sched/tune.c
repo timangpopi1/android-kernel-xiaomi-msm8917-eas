@@ -30,10 +30,12 @@ static DEFINE_MUTEX(boost_slot_mutex);
 static DEFINE_MUTEX(stune_boost_mutex);
 static struct schedtune *getSchedtune(char *st_name);
 static int dynamic_boost(struct schedtune *st, int boost);
+<<<<<<< HEAD
 struct boost_slot {
 	struct list_head list;
 	int idx;
 };
+
 #endif /* CONFIG_DYNAMIC_STUNE_BOOST */
 
 /* Performance Boost region (B) threshold params */
@@ -1230,6 +1232,7 @@ static int _do_stune_boost(struct schedtune *st, int boost, int *slot)
 	mutex_lock(&stune_boost_mutex);
 	if (boost > st->boost)
 		ret = dynamic_boost(st, boost);
+
 	mutex_unlock(&stune_boost_mutex);
 
 	return ret;
@@ -1252,9 +1255,9 @@ int reset_stune_boost(char *st_name, int slot)
 	boost = max_active_boost(st);
 
 	mutex_lock(&stune_boost_mutex);
-	/* Boost only if value changed */
-	if (boost != st->boost)
-		ret = dynamic_boost(st, boost);
+
+	ret = dynamic_boost(st, st->boost_default);
+
 	mutex_unlock(&stune_boost_mutex);
 
 	return ret;
