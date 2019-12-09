@@ -1725,10 +1725,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		goto out;
 
 	success = 1; /* we're going to change ->state */
-<<<<<<< HEAD
-=======
+
 	cpu = task_cpu(p);
->>>>>>> e2902ecb1d79... sched: Revert HMP and some MSM specific features
 
 	/*
 	 * Ensure we load p->on_rq _after_ p->state, otherwise it would
