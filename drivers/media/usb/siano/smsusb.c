@@ -366,8 +366,6 @@ static int smsusb_init_device(struct usb_interface *intf, int board_id)
 	dev->udev = interface_to_usbdev(intf);
 	dev->state = SMSUSB_DISCONNECTED;
 
-<<<<<<< HEAD
-=======
 	for (i = 0; i < intf->cur_altsetting->desc.bNumEndpoints; i++) {
 		struct usb_endpoint_descriptor *desc =
 				&intf->cur_altsetting->endpoint[i].desc;
@@ -385,7 +383,6 @@ static int smsusb_init_device(struct usb_interface *intf, int board_id)
 		return -ENODEV;
 	}
 
->>>>>>> e473a28762a12e17eb74d597816d759e4f2016e5
 	params.device_type = sms_get_board(board_id)->type;
 
 	switch (params.device_type) {
@@ -400,13 +397,8 @@ static int smsusb_init_device(struct usb_interface *intf, int board_id)
 		/* fall-thru */
 	default:
 		dev->buffer_size = USB2_BUFFER_SIZE;
-<<<<<<< HEAD
-		dev->response_alignment =
-		    le16_to_cpu(dev->udev->ep_in[1]->desc.wMaxPacketSize) -
-		    sizeof(struct sms_msg_hdr);
-=======
+
 		dev->response_alignment = align;
->>>>>>> e473a28762a12e17eb74d597816d759e4f2016e5
 
 		params.flags |= SMS_DEVICE_FAMILY2;
 		break;
