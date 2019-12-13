@@ -529,8 +529,7 @@ static void tun_detach_all(struct net_device *dev)
 		module_put(THIS_MODULE);
 }
 
-static int tun_attach(struct tun_struct *tun, struct file *file,
-		      bool skip_filter, bool publish_tun)
+static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filter)
 {
 	struct tun_file *tfile = file->private_data;
 	int err;
@@ -562,8 +561,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file,
 	}
 	tfile->queue_index = tun->numqueues;
 	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
-	if (publish_tun)
-		rcu_assign_pointer(tfile->tun, tun);
+	rcu_assign_pointer(tfile->tun, tun);
 	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
 	tun->numqueues++;
 
@@ -1619,7 +1617,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 		if (err < 0)
 			return err;
 
-		err = tun_attach(tun, file, ifr->ifr_flags & IFF_NOFILTER, true);
+		err = tun_attach(tun, file, ifr->ifr_flags & IFF_NOFILTER);
 		if (err < 0)
 			return err;
 
@@ -1699,17 +1697,13 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
 				       NETIF_F_HW_VLAN_STAG_TX);
 
 		INIT_LIST_HEAD(&tun->disabled);
-		err = tun_attach(tun, file, false, false);
+		err = tun_attach(tun, file, false);
 		if (err < 0)
 			goto err_free_flow;
 
 		err = register_netdevice(tun->dev);
 		if (err < 0)
 			goto err_detach;
-		/* free_netdev() won't check refcnt, to aovid race
-		 * with dev_put() we need publish tun after registration.
-		 */
-		rcu_assign_pointer(tfile->tun, tun);
 
 		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
 		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
@@ -1867,7 +1861,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
 		ret = security_tun_dev_attach_queue(tun->security);
 		if (ret < 0)
 			goto unlock;
-		ret = tun_attach(tun, file, false, true);
+		ret = tun_attach(tun, file, false);
 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
 		tun = rtnl_dereference(tfile->tun);
 		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
