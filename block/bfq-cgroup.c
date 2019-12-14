@@ -143,14 +143,6 @@ static void bfqg_stats_update_avg_queue_size(struct bfq_group *bfqg)
 	bfqg_stats_update_group_wait_time(stats);
 }
 
-static struct blkcg_policy blkcg_policy_bfq;
-
-/*
- * blk-cgroup policy-related handlers
- * The following functions help in converting between blk-cgroup
- * internal structures and BFQ-specific structures.
- */
-
 static struct bfq_group *pd_to_bfqg(struct blkg_policy_data *pd)
 {
 	return pd ? container_of(pd, struct bfq_group, pd) : NULL;
