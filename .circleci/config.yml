@@ -6,9 +6,9 @@ jobs:
     steps:
       - run: echo "its time"
       - run: git clone --quiet -j32 https://github.com/fadlyas07/android-kernel-xiaomi-msm8917-3 -b pure-eas --depth=1 .
-      - run: wget https://raw.githubusercontent.com/fadlyas07/scripts/master/test/rolex
-      - run: chmod +x rolex
-      - run: bash rolex
+      - run: wget https://raw.githubusercontent.com/fadlyas07/scripts/master/test/rolex.sh
+      - run: chmod +x rolex.sh
+      - run: bash rolex.sh
   compiletoo:
     docker:
       - image: mhmmdfas/mydockerimage:latest
