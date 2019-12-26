@@ -5,17 +5,15 @@ jobs:
       - image: mhmmdfas/mydockerimage:latest
     steps:
       - run: git clone --quiet -j32 https://github.com/fadlyas07/android-kernel-xiaomi-msm8917-3 -b pure-eas --depth=1 .
-      - run: wget https://raw.githubusercontent.com/fadlyas07/scripts/master/pure/rolex
-      - run: chmod +x rolex
-      - run: bash rolex
+      - run: git clone --quiet -j32 https://github.com/fadlyas07/build-scripts --depth=1
+      - run: bash build-scripts/gcc~rolex.sh
   compiletoo:
     docker:
       - image: mhmmdfas/mydockerimage:latest
     steps:
       - run: git clone --quiet -j32 https://github.com/fadlyas07/android-kernel-xiaomi-msm8917-3 -b pure-eas --depth=1 .
-      - run: wget https://raw.githubusercontent.com/fadlyas07/scripts/master/pure/riva
-      - run: chmod +x riva
-      - run: bash riva
+      - run: git clone --quiet -j32 https://github.com/fadlyas07/build-scripts --depth=1
+      - run: bash build-scripts/gcc~riva.sh
 workflows:
   version: 2.1
   cooking:
