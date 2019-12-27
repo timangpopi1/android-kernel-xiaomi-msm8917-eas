@@ -2610,7 +2610,7 @@ ___update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 	if (!delta)
 		return 0;
 
-	sa->last_update_time += delta << 10;
+	sa->last_update_time = now;
 
 	/*
 	 * running is a subset of runnable (weight) so running can't be set if
