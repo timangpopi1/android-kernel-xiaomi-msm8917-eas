@@ -720,27 +720,6 @@ static u64 sched_vslice(struct cfs_rq *cfs_rq, struct sched_entity *se)
 static int select_idle_sibling(struct task_struct *p, int prev_cpu, int cpu);
 static unsigned long task_h_load(struct task_struct *p);
 
-/*
- * We choose a half-life close to 1 scheduling period.
- * Note: The tables runnable_avg_yN_inv and runnable_avg_yN_sum are
- * dependent on this value.
- */
-#ifdef CONFIG_PELT_HALFLIFE_32
-#define LOAD_AVG_PERIOD 32
-#define LOAD_AVG_MAX 47742 /* maximum possible load avg */
-#define LOAD_AVG_MAX_N 345 /* number of full periods to produce LOAD_AVG_MAX */
-#endif
-#ifdef CONFIG_PELT_HALFLIFE_16
-#define LOAD_AVG_PERIOD 16
-#define LOAD_AVG_MAX 24152
-#define LOAD_AVG_MAX_N 517
-#endif
-#ifdef CONFIG_PELT_HALFLIFE_8
-#define LOAD_AVG_PERIOD 8
-#define LOAD_AVG_MAX 12337
-#define LOAD_AVG_MAX_N 603
-#endif
-
 /* Give new sched_entity start runnable values to heavy its load in infant time */
 void init_entity_runnable_average(struct sched_entity *se)
 {
@@ -2384,40 +2363,6 @@ static inline void update_cfs_shares(struct sched_entity *se)
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 
 #ifdef CONFIG_SMP
-
-/* Precomputed fixed inverse multiplies for multiplication by y^n */
-static const u32 runnable_avg_yN_inv[] = {
-#ifdef CONFIG_PELT_HALFLIFE_32
-	0xffffffff, 0xfa83b2da, 0xf5257d14, 0xefe4b99a, 
-	0xeac0c6e6, 0xe5b906e6, 0xe0ccdeeb, 0xdbfbb796, 
-	0xd744fcc9, 0xd2a81d91, 0xce248c14, 0xc9b9bd85, 
-	0xc5672a10, 0xc12c4cc9, 0xbd08a39e, 0xb8fbaf46, 
-	0xb504f333, 0xb123f581, 0xad583ee9, 0xa9a15ab4, 
-	0xa5fed6a9, 0xa2704302, 0x9ef5325f, 0x9b8d39b9, 
-	0x9837f050, 0x94f4efa8, 0x91c3d373, 0x8ea4398a, 
-	0x8b95c1e3, 0x88980e80, 0x85aac367, 0x82cd8698, 
-#endif
-#ifdef CONFIG_PELT_HALFLIFE_16
-	0xffffffff, 0xf5257d14, 0xeac0c6e6, 0xe0ccdeeb, 
-	0xd744fcc9, 0xce248c14, 0xc5672a10, 0xbd08a39e, 
-	0xb504f333, 0xad583ee9, 0xa5fed6a9, 0x9ef5325f, 
-	0x9837f050, 0x91c3d373, 0x8b95c1e3, 0x85aac367, 
-#endif
-#ifdef CONFIG_PELT_HALFLIFE_8
-	0xffffffff, 0xeac0c6e6, 0xd744fcc9, 0xc5672a10, 
-	0xb504f333, 0xa5fed6a9, 0x9837f050, 0x8b95c1e3, 
-#endif
-};
-
-/*
- * Precomputed \Sum y^k { 1<=k<=n }.  These are floor(true_value) to prevent
- * over-estimates when re-combining.
- */
-static const u32 runnable_avg_yN_sum[] = {
-	    0, 1002, 1982, 2941, 3880, 4798, 5697, 6576, 7437, 8279, 9103,
-	 9909,10698,11470,12226,12966,13690,14398,15091,15769,16433,17082,
-	17718,18340,18949,19545,20128,20698,21256,21802,22336,22859,23371,
-};
 
 /*
  * Approximate:
@@ -5346,7 +5291,7 @@ struct energy_env {
 	struct sched_group	*sg;
 };
 
-int cpu_util_wake(int cpu, struct task_struct *p);
+static int cpu_util_wake(int cpu, struct task_struct *p);
 
 /*
  * __cpu_norm_util() returns the cpu util relative to a specific capacity,
@@ -6327,7 +6272,7 @@ done:
  * rq->curr. For that case we should return cpu util with contributions from
  * currently running task p removed.
  */
-int cpu_util_wake(int cpu, struct task_struct *p)
+static int cpu_util_wake(int cpu, struct task_struct *p)
 {
 	struct cfs_rq *cfs_rq;
 	unsigned int util;
