@@ -2274,6 +2274,9 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 		dev_err(chip->dev,
 			"Couldn't set Vflt on parallel psy rc: %d\n", rc);
 		return;
+	} else {
+		power_supply_set_voltage_limit(chip->usb_psy,
+				(chip->vfloat_mv + 50) * 1000);
 	}
 	power_supply_set_voltage_limit(chip->usb_psy,
 			(chip->vfloat_mv + 50) * 2000);
@@ -3355,6 +3358,9 @@ static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 		power_supply_set_voltage_limit(chip->usb_psy,
 				chip->vfloat_mv * 2000);
 	}
+
+	power_supply_set_voltage_limit(chip->usb_psy,
+				(chip->vfloat_mv * 1000));
 
 	return rc;
 }
