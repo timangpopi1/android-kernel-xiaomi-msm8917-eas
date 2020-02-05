@@ -4654,7 +4654,6 @@ waitagain:
 	       sizeof(struct trace_iterator) -
 	       offsetof(struct trace_iterator, seq));
 	cpumask_clear(iter->started);
-	trace_seq_init(&iter->seq);
 	iter->pos = -1;
 
 	trace_event_read_lock();
