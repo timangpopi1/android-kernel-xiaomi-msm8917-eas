@@ -323,7 +323,7 @@ static eHalStatus sme_EseSendBeaconReqScanResults(tpAniSirGlobal pMac,
    tCsrScanResultInfo     *pCurResult     = NULL;
    tANI_U8                 msgCounter     = 0;
    tpRrmSMEContext         pSmeRrmContext = &pMac->rrm.rrmSmeContext;
-   tCsrRoamInfo            *roam_info;
+   tCsrRoamInfo            roamInfo;
    tSirEseBcnReportRsp     bcnReport;
    tpSirEseBcnReportRsp    pBcnReport     = &bcnReport;
    tpCsrEseBeaconReqParams pCurMeasReqIe  = NULL;
@@ -341,9 +341,6 @@ static eHalStatus sme_EseSendBeaconReqScanResults(tpAniSirGlobal pMac,
       return eHAL_STATUS_FAILURE;
    }
 
-   roam_info = vos_mem_malloc(sizeof(*roam_info));
-   if (!roam_info)
-      return eHAL_STATUS_FAILED_ALLOC;
    if (pResultArr)
        pCurResult=pResultArr[bssCounter];
 
@@ -433,8 +430,8 @@ static eHalStatus sme_EseSendBeaconReqScanResults(tpAniSirGlobal pMac,
                " msgCounter(%d) bssCounter(%d) flag(%d)",
                 pBcnReport->numBss, msgCounter, bssCounter, pBcnReport->flag);
 
-       roam_info->pEseBcnReportRsp = pBcnReport;
-       status = csrRoamCallCallback(pMac, sessionId, roam_info,
+       roamInfo.pEseBcnReportRsp = pBcnReport;
+       status = csrRoamCallCallback(pMac, sessionId, &roamInfo,
                            0, eCSR_ROAM_ESE_BCN_REPORT_IND, 0);
 
        /* Free the memory allocated to IE */
@@ -444,8 +441,6 @@ static eHalStatus sme_EseSendBeaconReqScanResults(tpAniSirGlobal pMac,
                vos_mem_free(pBcnReport->bcnRepBssInfo[i].pBuf);
        }
    } while (pCurResult);
-   vos_mem_free(roam_info);
-
    return status;
 }
 

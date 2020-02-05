@@ -1534,10 +1534,19 @@ limAssocIndSerDes(tpAniSirGlobal pMac, tpLimMlmAssocInd pAssocInd, tANI_U8 *pBuf
 tSirRetStatus
 limAssocCnfSerDes(tpAniSirGlobal pMac, tpSirSmeAssocCnf pAssocCnf, tANI_U8 *pBuf)
 {
+#ifdef PE_DEBUG_LOG1
+    tANI_U8  *pTemp = pBuf;
+#endif
+
     if (!pAssocCnf || !pBuf)
         return eSIR_FAILURE;
 
-    vos_mem_copy(pAssocCnf, pBuf, sizeof(*pAssocCnf));
+    pAssocCnf->messageType = limGetU16(pBuf);
+    pBuf += sizeof(tANI_U16);
+
+    pAssocCnf->length = limGetU16(pBuf);
+    pBuf += sizeof(tANI_U16);
+
     if (pAssocCnf->messageType == eWNI_SME_ASSOC_CNF)
     {
         PELOG1(limLog(pMac, LOG1, FL("SME_ASSOC_CNF length %d bytes is:"), pAssocCnf->length);)
@@ -1546,10 +1555,35 @@ limAssocCnfSerDes(tpAniSirGlobal pMac, tpSirSmeAssocCnf pAssocCnf, tANI_U8 *pBuf
     {
         PELOG1(limLog(pMac, LOG1, FL("SME_REASSOC_CNF length %d bytes is:"), pAssocCnf->length);)
     }
-    PELOG1(sirDumpBuf(pMac, SIR_LIM_MODULE_ID, LOG1, pBuf, pAssocCnf->length);)
+    PELOG1(sirDumpBuf(pMac, SIR_LIM_MODULE_ID, LOG1, pTemp, pAssocCnf->length);)
+
+    // status code
+    pAssocCnf->statusCode = (tSirResultCodes) limGetU32(pBuf);
+    pBuf += sizeof(tSirResultCodes);
+
+    // bssId
+    vos_mem_copy( pAssocCnf->bssId, pBuf, sizeof(tSirMacAddr));
+    pBuf += sizeof(tSirMacAddr);
+
+    // peerMacAddr
+    vos_mem_copy( pAssocCnf->peerMacAddr, pBuf, sizeof(tSirMacAddr));
+    pBuf += sizeof(tSirMacAddr);
+
+
+    pAssocCnf->aid = limGetU16(pBuf);
+    pBuf += sizeof(tANI_U16);
+    // alternateBssId
+    vos_mem_copy( pAssocCnf->alternateBssId, pBuf, sizeof(tSirMacAddr));
+    pBuf += sizeof(tSirMacAddr);
+
+    // alternateChannelId
+    pAssocCnf->alternateChannelId = *pBuf;
+    pBuf++;
 
     return eSIR_SUCCESS;
 } /*** end limAssocCnfSerDes() ***/
+
+
 
 /**
  * limDisassocCnfSerDes()

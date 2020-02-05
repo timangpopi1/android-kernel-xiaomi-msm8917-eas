@@ -410,7 +410,6 @@ typedef enum eMonFilterType{
 #undef  MAX_VAR_ARGS
 #define MAX_VAR_ARGS                              11
 #else
-#undef  MAX_VAR_ARGS
 #define MAX_VAR_ARGS                              7
 #endif
 
