@@ -3262,7 +3262,6 @@ int ufshcd_query_descriptor(struct ufs_hba *hba,
 		if (!err || err == -EINVAL)
 			break;
 	}
-
 	return err;
 }
 EXPORT_SYMBOL(ufshcd_query_descriptor);
